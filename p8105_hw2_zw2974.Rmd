@@ -126,6 +126,8 @@ gwynnda_df = read_excel("data/202207 Trash Wheel Collection Data.xlsx", sheet = 
 ```{r}
 combination = bind_rows(mr_trash_wheel, professor_df, gwynnda_df) |> 
   relocate(type)
+
+combination
 ```
 
 ## Write a paragraph about these data:
@@ -139,4 +141,6 @@ Names of key variables: `r names(combination)`
 Total weight of trash collected by Professor Trash Wheel: `r sum(professor_df$weight_tons)`
 
 Total number of cigarette butts collected by Gwynnda in July of 2021: `r sum(gwynnda_df$cigarette_butts[which(gwynnda_df$month == "July" & gwynnda_df$year == 2021)])`
+
+# Problem 3
 
