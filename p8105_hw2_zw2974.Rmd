@@ -144,3 +144,106 @@ Total number of cigarette butts collected by Gwynnda in July of 2021: `r sum(gwy
 
 # Problem 3
 
+## Import, clean, and tidy the dataset of baseline demographics
+* sex and APOE4 carrier status are appropriate encoded (i.e. not numeric)
+* remove any participants who do not meet the stated inclusion criteria (i.e. no MCI at baseline)
+
+```{r}
+baseline = read_csv("data/MCI_baseline.csv", skip = 1) |> 
+  janitor::clean_names() |> 
+  mutate(
+    sex = case_match(
+      sex,
+      1 ~ "Male",
+      0 ~ "Female")
+    ) |> 
+  mutate(
+    apoe4 = case_match(
+      apoe4,
+      1 ~ "APOE4 carrier",
+      0 ~ "APOE4 non-carrier")
+    )
+baseline_df = baseline |> 
+  filter(age_at_onset != ".")
+```
+
+## Discuss important steps in the import process and relevant features of the dataset
+
+`r nrow(baseline)` participants were recruited
+
+`r nrow(baseline_df)` participants develop MCI
+
+```{r,echo=FALSE}
+avg_age = baseline_df |> 
+  summarise(mean_age = mean(current_age, na.rm = T)) |> 
+  pull(mean_age)
+```
+
+Average baseline age: `r avg_age`
+
+```{r}
+woman_APOE4 = baseline_df |> 
+  filter(sex == "Female" & apoe4 == "APOE4 carrier") |> 
+  count()
+```
+
+Proportion of women in the study are APOE4 carriers: `r woman_APOE4/nrow(baseline_df)`
+
+## Import, clean, and tidy the dataset of longitudinally observed biomarker values
+
+```{r}
+amyloid = read_csv("data/mci_amyloid.csv", skip = 1) |> 
+  janitor::clean_names() |> 
+  subset(
+    baseline != "NA" & baseline != "Na"
+  ) |> 
+  rename(
+    id = study_id
+  )
+view(amyloid)
+```
+
+## Check whether some participants appear in only the baseline or amyloid datasets, and comment on your findings
+
+```{r}
+merge_df = left_join(baseline_df, amyloid, by = "id")
+
+baseline_only = merge_df |> 
+  subset(
+    is.na(merge_df$baseline)
+  )
+view(baseline_only)
+```
+
+There are `r nrow(baseline_only)` participants appear in only the baseline datasets. 
+
+```{r}
+merge_df2 =
+  right_join(baseline_df, amyloid, by = "id")
+
+amyloid_only=
+  merge_df2|>
+  subset(
+    is.na(merge_df2$age_at_onset))
+```
+
+There are `r nrow(amyloid_only)` participants appear in only the amyloid datasets.
+
+## Combine the demographic and biomarker datasets so that only participants who appear in both datasets are retained, and briefly describe the resulting dataset
+
+```{r,echo=FALSE}
+both =
+  inner_join(baseline_df, amyloid, by="id")
+
+complete =  
+  both |> 
+  na.omit(both)
+```
+
+From the dataset, wer can discover there are`r nrow(both)` participants while only `r nrow(complete)` can accomplish the process
+
+## Export the result as a CSV to your data directory
+```{r}
+write_csv(both,"Both mci_baseline and mci_amyloid")
+write_csv(complete,"Complete participants")
+```
