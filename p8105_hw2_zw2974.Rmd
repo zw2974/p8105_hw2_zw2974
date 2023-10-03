@@ -11,7 +11,8 @@ library(dplyr)
 library(readxl)
 ```
 
-# Problem 1
+
+## Problem 1
 
 We clean the 538 `pols` data, which provides information on the number of national politicians who are democratic or republican at any given time. There are some values for which `prez_gop` is `2` -- these are months in which Ford became President following Nixon's resignation. In the new `president` variable created as part of our data cleaning, we code these as `gop` (same as values when `prez_gop` is `1`).
 
@@ -28,7 +29,7 @@ pols =
   separate(mon, into = c("year", "month_num", "day"), convert = TRUE) |>
   mutate(
     president = recode(prez_gop, "0" = "dem", "1" = "gop", "2" = "gop")) |>
-  left_join(x = _, y = month_df) |> 
+  left_join(month_df) |> 
   select(year, month, everything(), -day, -starts_with("prez")) 
 ```
 
@@ -36,13 +37,12 @@ We also clean the 538 `snp` data, which contains information related to Standard
 
 ```{r clean_538_snp}
 snp = 
-  read_csv(
-    "data/snp.csv",
+  read_csv("data/snp.csv",
     col_types = cols(date = col_date(format = "%m/%d/%y"))) |>
   separate(date, into = c("year", "month_num", "day"), convert = TRUE) |>
   mutate(
     year = if_else(year > 2023, year - 100, year)) |> 
-  left_join(x = _, y = month_df) |> 
+  left_join(month_df) |> 
   select(year, month, close) 
 ```
 
@@ -57,7 +57,7 @@ unemployment =
     names_to = "month_abb",
     values_to = "unemployment"
   ) |> 
-  left_join(x = _, y = month_df) |> 
+  left_join(month_df) |> 
   select(year, month, unemployment)
 ```
 
@@ -66,7 +66,7 @@ Now we merge the three datasets!
 ```{r merge_538}
 data_538 = 
   left_join(pols, snp) |>
-  left_join(x = _, y = unemployment)
+  left_join(y = unemployment)
 
 str(data_538)
 ```
@@ -75,12 +75,13 @@ Notice that there are some `NA` values in the `close` and `unemployment` variabl
 
 Let's talk about the 538 datasets. The `pols` data has `r nrow(pols)` observations and `r ncol(pols)` variables and tells us about the party affiliation distribution (democrat or republican) for governors and senators for a given year from years `r pols |> pull(year) |> min()` to `r pols |> pull(year) |> max()`. It also tells us whether the sitting president was a democrat or republican. The `snp` data has `r nrow(snp)` observations and `r ncol(snp)` variables, ranging from years `r snp |> pull(year) |> min()` to `r snp |> pull(year) |> max()`. The `unemployment` data has `r nrow(unemployment)` observations and `r ncol(unemployment)` variables ranging from years `r unemployment |> pull(year) |> min()` to `r unemployment |> pull(year) |> max()`. In Januarys in or after 1975 in which a democrat was president, the **average unemployment rate was `r filter(data_538, month == "January", year >= 1975, president == "dem") |> pull(unemployment) |> mean() |> round(2)`**.  The average unemployment rate over the same time period in which a republican was president was `r filter(data_538, month == "January", year >= 1975, president == "gop") |> pull(unemployment) |> mean() |> round(2)`.
 
+
 # Problem 2
 
 ## Read and clean the Mr. Trash Wheel sheet:
 
 ```{r}
-mr_trash_wheel = read_excel("data/202207 Trash Wheel Collection Data.xlsx", sheet = "Mr. Trash Wheel", range = "A2:N549") |> 
+mr_trash_wheel = read_excel("data/202309 Trash Wheel Collection Data.xlsx", sheet = "Mr. Trash Wheel", range = "A2:N586") |> 
   janitor::clean_names() |> 
   mutate(homes_powered = weight_tons * 500 /30) |> 
   mutate(type = "Mr.") |> 
@@ -91,7 +92,7 @@ mr_trash_wheel = read_excel("data/202207 Trash Wheel Collection Data.xlsx", shee
 ## Read and clean the Professor Trash Wheel sheet:
 
 ```{r}
-professor_df = read_excel("data/202207 Trash Wheel Collection Data.xlsx", sheet = "Professor Trash Wheel", range = "A2:M96") |> 
+professor_df = read_excel("data/202309 Trash Wheel Collection Data.xlsx", sheet = "Professor Trash Wheel", range = "A2:M108") |> 
   janitor::clean_names() |> 
   mutate(homes_powered = weight_tons * 500 /30) |> 
   mutate(type = "Professor") |> 
@@ -103,7 +104,7 @@ professor_df = read_excel("data/202207 Trash Wheel Collection Data.xlsx", sheet 
 ## Read and clean the Gwynnda Trash Wheel sheet:
 
 ```{r}
-gwynnda_df = read_excel("data/202207 Trash Wheel Collection Data.xlsx", sheet = "Gwynnda Trash Wheel", range = "A2:K108") |> 
+gwynnda_df = read_excel("data/202309 Trash Wheel Collection Data.xlsx", sheet = "Gwynnda Trash Wheel", range = "A2:L157") |> 
   janitor::clean_names() |> 
   mutate(homes_powered = weight_tons * 500 /30) |>
   mutate(type = "Gwynnda") |> 
@@ -111,7 +112,7 @@ gwynnda_df = read_excel("data/202207 Trash Wheel Collection Data.xlsx", sheet = 
   drop_na(dumpster)
 ```
 
-## Read and clean the Professor Trash Wheel sheet:
+## Combine:
 
 ```{r}
 combination = bind_rows(mr_trash_wheel, professor_df, gwynnda_df) |> 
@@ -190,24 +191,32 @@ amyloid = read_csv("data/mci_amyloid.csv", skip = 1) |>
   rename(
     id = study_id
   )
-view(amyloid)
+amyloid
 ```
+
+## Comment on the steps on the import process and the features of the dataset
+
+Data imported from `mci_amyloid.csv` and participants who have no MCI would be eliminated from baseline column. `study_id` changed name for better understanding.
+
+`r nrow(read_csv("data/mci_amyloid.csv",skip = 1))` participants were recruited.
+
+`r nrow(amyloid)` participants observed biomarker values.
 
 ## Check whether some participants appear in only the baseline or amyloid datasets, and comment on your findings
 
-```{r}
+```{r, echo = F}
 merge_df = left_join(baseline_df, amyloid, by = "id")
 
 baseline_only = merge_df |> 
   subset(
     is.na(merge_df$baseline)
   )
-view(baseline_only)
+baseline_only
 ```
 
 There are `r nrow(baseline_only)` participants appear in only the baseline datasets. 
 
-```{r}
+```{r, echo = F}
 merge_df2 =
   right_join(baseline_df, amyloid, by = "id")
 
